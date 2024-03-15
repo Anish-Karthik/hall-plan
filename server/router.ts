@@ -1,4 +1,4 @@
-import { collegeRouter } from "./colleg"
+import { collegeRouter } from "./college"
 import { departmentRouter } from "./department"
 import { generateRouter } from "./generate"
 import { hallRouter } from "./hall"

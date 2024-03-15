@@ -25,7 +25,7 @@ const DepartmentCard = ({
           title="Edit Department"
           description="Edit Department details"
         >
-          <DepartmentForm />
+          <DepartmentForm department={{ id, name, code }} />
         </DialogModal>
       </EditModal>
       <div className="flex items-center rounded-full bg-slate-300 p-1 px-2 text-center">

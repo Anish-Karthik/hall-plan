@@ -19,23 +19,23 @@ import {
   TableRow,
   Tooltip,
 } from "@nextui-org/react"
-import { Student } from "@prisma/client"
-import { ChevronDownIcon, DeleteIcon, PlusIcon, SearchIcon } from "lucide-react"
+import { ChevronDownIcon, PlusIcon, SearchIcon, Trash2Icon } from "lucide-react"
 import toast from "react-hot-toast"
 
+import { StudentWithDept, StudentWithDeptWithActions } from "@/types/student"
+import { capitalize, intToRoman } from "@/lib/utils"
 import DialogModal from "@/components/modal/dialog-modal"
 import { trpc } from "@/app/_trpc/client"
 
 import { columns, departments, years } from "./data"
+import ExcelForm from "./excel-form"
 import StudentForm from "./student-form"
-
-const capitalize = (str: string) => str.charAt(0).toUpperCase() + str.slice(1)
 
 const INITIAL_VISIBLE_COLUMNS = [
   "rollno",
   "regno",
   "name",
-  "dept",
+  "department",
   "year",
   "section",
   "vertical",
@@ -43,20 +43,8 @@ const INITIAL_VISIBLE_COLUMNS = [
 ]
 
 export default function StudentTable() {
-  const [filterValue, setFilterValue] = React.useState("")
-  const [selectedKeys, setSelectedKeys] = React.useState<Selection>(new Set([]))
-  const [visibleColumns, setVisibleColumns] = React.useState<Selection>(
-    new Set(INITIAL_VISIBLE_COLUMNS)
-  )
-  const [statusFilter, setStatusFilter] = React.useState<Selection>("all")
-  const [rowsPerPage, setRowsPerPage] = React.useState(5)
-  const [sortDescriptor, setSortDescriptor] = React.useState<SortDescriptor>({
-    column: "age",
-    direction: "ascending",
-  })
-  const [page, setPage] = React.useState(1)
-  const { data } = trpc.student.getAll.useQuery()
   const utils = trpc.useUtils()
+  const { data } = trpc.student.getAll.useQuery()
   const deleteUser = trpc.student.delete.useMutation({
     onSuccess: () => {
       utils.student.getAll.invalidate()
@@ -66,11 +54,27 @@ export default function StudentTable() {
       toast.error("Error: " + error.message)
     },
   })
+
+  const [rowsPerPage, setRowsPerPage] = React.useState(70)
+  const [visibleColumns, setVisibleColumns] = React.useState<Selection>(
+    new Set(INITIAL_VISIBLE_COLUMNS)
+  )
+  const [deptFilter, setDeptFilter] = React.useState<Selection>("all")
+  const [filterValue, setFilterValue] = React.useState("")
+
+  const [selectedKeys, setSelectedKeys] = React.useState<Selection>(new Set([]))
+
+  const [sortDescriptor, setSortDescriptor] = React.useState<SortDescriptor>({
+    column: "age",
+    direction: "ascending",
+  })
+  const [page, setPage] = React.useState(1)
+
   const handleClick = async (id: string) => {
     await deleteUser.mutateAsync(id)
   }
-
-  const students: Student[] = useMemo(() => data || [], [data])
+  console.log(data)
+  const students: StudentWithDept[] = useMemo(() => data || [], [data])
 
   const pages = Math.ceil(students?.length || 0 / rowsPerPage)
 
@@ -85,7 +89,7 @@ export default function StudentTable() {
   }, [visibleColumns])
 
   const filteredItems = React.useMemo(() => {
-    let filteredUsers: Student[] = students ? [...students] : []
+    let filteredUsers: StudentWithDept[] = students ? [...students] : []
 
     if (hasSearchFilter) {
       filteredUsers = filteredUsers.filter((user) =>
@@ -94,26 +98,25 @@ export default function StudentTable() {
     }
 
     if (
-      statusFilter !== "all" &&
-      Array.from(statusFilter).length !== years.length
+      deptFilter !== "all" &&
+      Array.from(deptFilter).length !== years.length
     ) {
       // filteredUsers = filteredUsers.filter((user) =>
-      //   Array.from(statusFilter).includes(user?.userRole!)
+      //   Array.from(deptFilter).includes(user?.userRole!)
       // )
     }
 
     if (
-      statusFilter !== "all" &&
-      Array.from(statusFilter).length !== departments.length
+      deptFilter !== "all" &&
+      Array.from(deptFilter).length !== departments.length
     ) {
       filteredUsers = filteredUsers.filter((user) =>
-        //@ts-ignore
-        Array.from(statusFilter).includes(user?.bank!)
+        Array.from(deptFilter).includes(user?.department.code!)
       )
     }
 
     return filteredUsers
-  }, [students, filterValue, statusFilter, hasSearchFilter])
+  }, [students, filterValue, deptFilter, hasSearchFilter])
 
   const items = React.useMemo(() => {
     const start = (page - 1) * rowsPerPage
@@ -122,15 +125,16 @@ export default function StudentTable() {
     return filteredItems.slice(start, end)
   }, [page, filteredItems, rowsPerPage])
 
-  const sortedItems = React.useMemo((): Student[] => {
-    //@ts-ignore
-    return [...items].sort((a: Student, b: Student) => {
-      //@ts-ignore
+  const sortedItems = React.useMemo((): StudentWithDept[] => {
+    return [...items].sort((a: StudentWithDept, b: StudentWithDept) => {
       const first =
-        (a![sortDescriptor.column as keyof Student] as unknown as number) || 0
-      //@ts-ignore
+        (a![
+          sortDescriptor.column as keyof StudentWithDept
+        ] as unknown as number) || 0
       const second =
-        (b![sortDescriptor.column as keyof Student] as unknown as number) || 0
+        (b![
+          sortDescriptor.column as keyof StudentWithDept
+        ] as unknown as number) || 0
       const cmp = first < second ? -1 : first > second ? 1 : 0
 
       return sortDescriptor.direction === "descending" ? -cmp : cmp
@@ -138,10 +142,29 @@ export default function StudentTable() {
   }, [sortDescriptor, items])
 
   const renderCell = React.useCallback(
-    (user: Student, columnKey: React.Key): JSX.Element => {
-      const cellValue = user[columnKey as keyof Student]
-
+    (
+      user: StudentWithDept,
+      columnKey: keyof StudentWithDeptWithActions
+    ): JSX.Element => {
       switch (columnKey) {
+        case "department":
+          return (
+            <div className="flex flex-col">
+              <p className="text-bold text-tiny text-default-400 capitalize">
+                {user.department.code}
+              </p>
+            </div>
+          )
+        case "year":
+        case "semester":
+          console.log(columnKey)
+          return (
+            <div className="flex flex-col">
+              <p className="text-bold text-tiny text-default-400 capitalize">
+                {intToRoman(user[columnKey])}
+              </p>
+            </div>
+          )
         case "actions":
           console.log(user)
           return (
@@ -149,8 +172,8 @@ export default function StudentTable() {
               <Tooltip content="Edit fleet">
                 <span className="text-default-400 cursor-pointer text-lg active:opacity-50">
                   <DialogModal
-                    title="Edit Staff"
-                    description="Edit the staff details"
+                    title="Edit StudentWithDept"
+                    description="Edit the student details"
                   >
                     <StudentForm />
                   </DialogModal>
@@ -158,7 +181,11 @@ export default function StudentTable() {
               </Tooltip>
               <Tooltip color="danger" content="Delete fleet">
                 <span className="text-danger cursor-pointer text-lg active:opacity-50">
-                  <DeleteIcon onClick={() => handleClick(user?.id)} />
+                  <Trash2Icon
+                    width={15}
+                    height={15}
+                    onClick={() => handleClick(user?.id)}
+                  />
                 </span>
               </Tooltip>
             </div>
@@ -167,7 +194,7 @@ export default function StudentTable() {
           return (
             <div className="flex flex-col">
               <p className="text-bold text-tiny text-default-400 capitalize">
-                {cellValue}
+                {user[columnKey]?.toString()}
               </p>
             </div>
           )
@@ -219,16 +246,16 @@ export default function StudentTable() {
                   size="sm"
                   variant="flat"
                 >
-                  Role
+                  Year
                 </Button>
               </DropdownTrigger>
               <DropdownMenu
                 disallowEmptySelection
                 aria-label="Table Columns"
                 closeOnSelect={false}
-                selectedKeys={statusFilter}
+                selectedKeys={deptFilter}
                 selectionMode="multiple"
-                onSelectionChange={setStatusFilter}
+                onSelectionChange={setDeptFilter}
               >
                 {years.map((status) => (
                   <DropdownItem key={status.uid} className="capitalize">
@@ -244,16 +271,16 @@ export default function StudentTable() {
                   size="sm"
                   variant="flat"
                 >
-                  Bank
+                  Dept
                 </Button>
               </DropdownTrigger>
               <DropdownMenu
                 disallowEmptySelection
                 aria-label="Table Columns"
                 closeOnSelect={false}
-                selectedKeys={statusFilter}
+                selectedKeys={deptFilter}
                 selectionMode="multiple"
-                onSelectionChange={setStatusFilter}
+                onSelectionChange={setDeptFilter}
               >
                 {departments.map((status) => (
                   <DropdownItem key={status.uid} className="capitalize">
@@ -287,9 +314,22 @@ export default function StudentTable() {
                 ))}
               </DropdownMenu>
             </Dropdown>
-            <div className="rounded-full bg-slate-100">
+            <div className="">
               <DialogModal
-                title="Add Student"
+                title="Add StudentWithDept"
+                description="Upload a student details excel file per year to update or create records"
+                trigger={
+                  <button className="h-8 rounded-md bg-gray-300 p-1 px-3 text-xs hover:bg-gray-200">
+                    Upload a file
+                  </button>
+                }
+              >
+                <ExcelForm />
+              </DialogModal>
+            </div>
+            <div className="flex items-center justify-center rounded-full bg-slate-100 px-1">
+              <DialogModal
+                title="Add StudentWithDept"
                 description="Add a new student to the college."
                 trigger={<PlusIcon />}
               >
@@ -311,12 +351,20 @@ export default function StudentTable() {
                 </Button>
               </DropdownTrigger>
               <DropdownMenu onChange={() => onRowsPerPageChange}>
-                <DropdownItem onClick={() => setRowsPerPage(5)}>5</DropdownItem>
-                <DropdownItem onClick={() => setRowsPerPage(10)}>
-                  10
+                <DropdownItem onClick={() => setRowsPerPage(35)}>
+                  35
                 </DropdownItem>
-                <DropdownItem onClick={() => setRowsPerPage(15)}>
-                  15
+                <DropdownItem onClick={() => setRowsPerPage(50)}>
+                  50
+                </DropdownItem>
+                <DropdownItem onClick={() => setRowsPerPage(70)}>
+                  70
+                </DropdownItem>
+                <DropdownItem onClick={() => setRowsPerPage(100)}>
+                  100
+                </DropdownItem>
+                <DropdownItem onClick={() => setRowsPerPage(400)}>
+                  400
                 </DropdownItem>
               </DropdownMenu>
             </Dropdown>
@@ -326,14 +374,13 @@ export default function StudentTable() {
     )
   }, [
     filterValue,
-    statusFilter,
+    deptFilter,
     visibleColumns,
     onSearchChange,
     onRowsPerPageChange,
     rowsPerPage,
     setRowsPerPage,
     students?.length,
-    hasSearchFilter,
   ])
 
   const bottomContent = React.useMemo(() => {
@@ -364,7 +411,7 @@ export default function StudentTable() {
         </div>
       </div>
     )
-  }, [selectedKeys, items.length, page, pages, hasSearchFilter])
+  }, [hasSearchFilter, page, pages, rowsPerPage, selectedKeys, items.length])
 
   const classNames = React.useMemo(
     () => ({
@@ -382,8 +429,8 @@ export default function StudentTable() {
   )
 
   return (
-    <div className="overflow-y-hidden">
-      <h2 className="mb-2 ml-12 text-2xl font-semibold">Staffs</h2>
+    <div className="overflow-y-hidden p-2">
+      <h2 className="mb-2 ml-4 text-2xl font-semibold">Students</h2>
       <Table
         isCompact
         removeWrapper
@@ -393,7 +440,7 @@ export default function StudentTable() {
         checkboxesProps={{
           classNames: {
             wrapper:
-              "after:bg-foreground after:text-background text-background",
+              "after:bg-foreground after:text-background text-background ml-4",
           },
         }}
         classNames={classNames}
@@ -417,10 +464,15 @@ export default function StudentTable() {
           )}
         </TableHeader>
         <TableBody emptyContent={"No students found"} items={sortedItems}>
-          {(item: Student) => (
+          {(item: StudentWithDept) => (
             <TableRow key={item.id}>
               {(columnKey) => (
-                <TableCell>{renderCell(item, columnKey)}</TableCell>
+                <TableCell>
+                  {renderCell(
+                    item,
+                    columnKey as keyof StudentWithDeptWithActions
+                  )}
+                </TableCell>
               )}
             </TableRow>
           )}

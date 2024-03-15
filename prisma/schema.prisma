@@ -33,12 +33,14 @@ model User {
 
 model College {
   id          String  @id @default(auto()) @map("_id") @db.ObjectId
+  logo        String?
+  coverImage  String?
   name        String?
   district    String?
   description String?
 
-  code  String?
-  aishe String?
+  code  String? @unique @default("xxxx")
+  aishe String? @unique @default("C-xxxxx")
 
   state   String?
   pincode String?
@@ -48,12 +50,12 @@ model College {
 }
 
 model Department {
-  id        String    @id @default(auto()) @map("_id") @db.ObjectId
-  name      String?
-  code      String?
-  students  Student[]
-  hall      Hall[]
-  
+  id       String    @id @default(auto()) @map("_id") @db.ObjectId
+  name     String
+  code     String
+  students Student[]
+  hall     Hall[]
+
   @@index([name], name: "department_index")
   @@index([code], name: "department_index_code")
 }
@@ -61,11 +63,11 @@ model Department {
 model Student {
   id       String  @id @default(auto()) @map("_id") @db.ObjectId
   regno    String  @unique
-  rollno   String
+  rollno   Int
   name     String
-  dept     String
   year     Int
   section  String
+  semester Int
   vertical String? @default("NONE")
   batch    String? @default("2021-2025")
 

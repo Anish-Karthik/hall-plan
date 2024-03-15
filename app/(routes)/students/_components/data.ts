@@ -1,9 +1,10 @@
 export const columns = [
-  { name: "Id", uid: "id", sortable: true },
   { name: "Rno", uid: "rollno", sortable: true },
   { name: "Regno", uid: "regno", sortable: true },
   { name: "Name", uid: "name", sortable: true },
+  { name: "Dept", uid: "department", sortable: true },
   { name: "Year", uid: "year", sortable: true },
+  { name: "Sem", uid: "semester", sortable: true },
   { name: "Section", uid: "section", sortable: true },
   { name: "Vertical", uid: "vertical", sortable: true },
   { name: "Batch", uid: "batch", sortable: true },
